@@ -110,7 +110,8 @@ export default function Home() {
           {Array.from({ length: 7 }).map((_, i) => <span key={i} />)}
         </div>
         <h1>Escutar é o primeiro passo para transformar histórias.</h1>
-<p>Milena Gonzaga · Escolha um horário livre na agenda abaixo para marcar sua sessão.</p>
+<p> · Milena Gonzaga · 
+                                         Escolha um horário livre na agenda abaixo para marcar sua sessão.</p>
 
       </div>
 
