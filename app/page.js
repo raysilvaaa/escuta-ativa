@@ -159,13 +159,15 @@ export default function Home() {
             />
           </div>
           <div className="field">
-            <label>WhatsApp (opcional)</label>
+            <label>WhatsApp</label>
             <input
+              required
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
               placeholder="(11) 90000-0000"
             />
           </div>
+
           <div className="field">
             <label>Alguma observação? (opcional)</label>
             <textarea
