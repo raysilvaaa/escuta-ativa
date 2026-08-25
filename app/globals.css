@@ -1,17 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Work+Sans:wght@400;500;600&display=swap');
 
 :root {
-  --bg: #faf6f0;
-  --bg-soft: #f2ece1;
-  --text: #2b2b28;
-  --text-muted: #6b6459;
-  --primary: #4b6358;
-  --primary-dark: #384c43;
-  --accent: #c98b7a;
-  --highlight: #d9b98e;
-  --line: #ddd3c4;
+  --bg: #f5efe4;
+  --bg-soft: #ede4d3;
+  --text: #3a2f22;
+  --text-muted: #8a7a63;
+  --primary: #a17c3f;
+  --primary-dark: #7c5e2c;
+  --accent: #6b5842;
+  --highlight: #d4af6a;
+  --line: #e3d5bb;
   --radius: 14px;
 }
+
 
 * { box-sizing: border-box; }
 
