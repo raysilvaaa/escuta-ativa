@@ -109,8 +109,9 @@ export default function Home() {
         <div className="wave">
           {Array.from({ length: 7 }).map((_, i) => <span key={i} />)}
         </div>
-        <h1>Um espaço pra ser ouvido.</h1>
-        <p>Escolha um horário livre na agenda abaixo para marcar sua sessão de escuta.</p>
+        <h1>Escutar é o primeiro passo para transformar histórias.</h1>
+<p>Milena Gonzaga · Escolha um horário livre na agenda abaixo para marcar sua sessão.</p>
+
       </div>
 
       {loading && <p className="empty-state">Carregando horários…</p>}
