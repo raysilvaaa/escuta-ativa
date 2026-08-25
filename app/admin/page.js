@@ -8,7 +8,12 @@ function formatDateLabel(dateStr) {
   return date.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
 }
 
-const DURATION_MIN = 30;
+const DURATION_OPTIONS = [
+  { label: '30 minutos', value: 30 },
+  { label: '1 hora', value: 60 },
+  { label: '1 hora e 30', value: 90 },
+  { label: '2 horas', value: 120 },
+];
 
 function addMinutes(time, minutes) {
   const [h, m] = time.split(':').map(Number);
@@ -29,6 +34,7 @@ export default function Admin() {
   const [bookingsBySlot, setBookingsBySlot] = useState({});
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('');
+  const [newDuration, setNewDuration] = useState(30);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -73,7 +79,7 @@ export default function Admin() {
     e.preventDefault();
     if (!newDate || !newTime) return;
     setSaving(true);
-    const endTime = addMinutes(newTime, DURATION_MIN);
+    const endTime = addMinutes(newTime, Number(newDuration));
     await supabase.from('slots').insert({
       date: newDate,
       start_time: newTime,
@@ -131,12 +137,32 @@ export default function Admin() {
             <label>Início</label>
             <input type="time" required value={newTime} onChange={(e) => setNewTime(e.target.value)} />
           </div>
+          <div className="field">
+            <label>Duração</label>
+            <select
+              value={newDuration}
+              onChange={(e) => setNewDuration(e.target.value)}
+              style={{
+                width: '100%',
+                border: '1px solid var(--line)',
+                borderRadius: 8,
+                padding: '11px 13px',
+                fontSize: '0.98rem',
+                fontFamily: 'inherit',
+                background: 'var(--bg)',
+              }}
+            >
+              {DURATION_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
           <button className="btn-primary" style={{ width: 'auto' }} disabled={saving}>
             {saving ? 'Salvando…' : 'Adicionar'}
           </button>
         </form>
         <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 10 }}>
-          Cada sessão dura {DURATION_MIN} minutos — o fim é calculado automaticamente.
+          O horário de término é calculado automaticamente com base na duração escolhida.
         </p>
       </div>
 
