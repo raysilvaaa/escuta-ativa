@@ -3,6 +3,19 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
+function formatTime(t) {
+  return t.slice(0, 5);
+}
+
+function dayParts(dateStr) {
+  const date = new Date(dateStr + 'T00:00:00');
+  return {
+    weekday: date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').toUpperCase(),
+    daynum: date.getDate(),
+    month: date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase(),
+  };
+}
+
 function formatDateLabel(dateStr) {
   const date = new Date(dateStr + 'T00:00:00');
   return date.toLocaleDateString('pt-BR', {
@@ -12,14 +25,13 @@ function formatDateLabel(dateStr) {
   });
 }
 
-function formatTime(t) {
-  return t.slice(0, 5);
-}
+const DAYS_PER_PAGE = 3;
 
 export default function Home() {
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
+  const [page, setPage] = useState(0);
   const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -47,6 +59,10 @@ export default function Home() {
     acc[slot.date].push(slot);
     return acc;
   }, {});
+  const uniqueDates = Object.keys(grouped);
+  const visibleDates = uniqueDates.slice(page * DAYS_PER_PAGE, page * DAYS_PER_PAGE + DAYS_PER_PAGE);
+  const hasPrev = page > 0;
+  const hasNext = (page + 1) * DAYS_PER_PAGE < uniqueDates.length;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -110,33 +126,47 @@ export default function Home() {
           {Array.from({ length: 7 }).map((_, i) => <span key={i} />)}
         </div>
         <h1>Escutar é o primeiro passo para transformar histórias.</h1>
-<p> · Milena Gonzaga · 
-                                         Escolha um horário livre na agenda abaixo para marcar sua sessão.</p>
-
+        <p>Milena Gonzaga · Escolha um horário livre na agenda abaixo para marcar sua sessão.</p>
       </div>
 
       {loading && <p className="empty-state">Carregando horários…</p>}
 
-      {!loading && Object.keys(grouped).length === 0 && (
+      {!loading && uniqueDates.length === 0 && (
         <p className="empty-state">Nenhum horário disponível no momento. Volte em breve.</p>
       )}
 
-      {Object.entries(grouped).map(([date, daySlots]) => (
-        <div className="day-group" key={date}>
-          <div className="day-label">{formatDateLabel(date)}</div>
-          <div className="slot-grid">
-            {daySlots.map((slot) => (
-              <button
-                key={slot.id}
-                className={`slot-btn ${selected?.id === slot.id ? 'selected' : ''}`}
-                onClick={() => setSelected(slot)}
-              >
-                {formatTime(slot.start_time)}
-              </button>
-            ))}
+      {!loading && uniqueDates.length > 0 && (
+        <>
+          <div className="calendar-nav">
+            <button disabled={!hasPrev} onClick={() => setPage((p) => p - 1)}>‹</button>
+            <button disabled={!hasNext} onClick={() => setPage((p) => p + 1)}>›</button>
           </div>
-        </div>
-      ))}
+
+          <div className="day-columns">
+            {visibleDates.map((date) => {
+              const parts = dayParts(date);
+              return (
+                <div className="day-column" key={date}>
+                  <div className="day-column-header">
+                    <div className="weekday">{parts.weekday}</div>
+                    <div className="daynum">{parts.daynum}</div>
+                    <div className="month">{parts.month}</div>
+                  </div>
+                  {grouped[date].map((slot) => (
+                    <button
+                      key={slot.id}
+                      className={`slot-btn ${selected?.id === slot.id ? 'selected' : ''}`}
+                      onClick={() => setSelected(slot)}
+                    >
+                      {formatTime(slot.start_time)}
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {selected && (
         <form className="card" onSubmit={handleSubmit}>
@@ -169,7 +199,6 @@ export default function Home() {
               placeholder="(11) 90000-0000"
             />
           </div>
-
           <div className="field">
             <label>Alguma observação? (opcional)</label>
             <textarea
