@@ -95,6 +95,12 @@ export default function Admin() {
     loadData();
   }
 
+  async function handleCancelBooking(slotId) {
+    await supabase.from('bookings').delete().eq('slot_id', slotId);
+    await supabase.from('slots').update({ is_booked: false }).eq('id', slotId);
+    loadData();
+  }
+
   if (checkingSession) return null;
 
   if (!session) {
@@ -185,7 +191,9 @@ export default function Admin() {
                 <span className={`tag ${slot.is_booked ? 'reservado' : 'livre'}`}>
                   {slot.is_booked ? 'Reservado' : 'Livre'}
                 </span>
-                {!slot.is_booked && (
+                {slot.is_booked ? (
+                  <button className="link-btn" onClick={() => handleCancelBooking(slot.id)}>Cancelar reserva</button>
+                ) : (
                   <button className="link-btn" onClick={() => handleDeleteSlot(slot.id)}>Remover</button>
                 )}
               </div>
