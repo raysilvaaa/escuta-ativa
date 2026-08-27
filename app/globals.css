@@ -266,13 +266,29 @@ footer {
 .tag.reservado { background: #f3e4de; color: var(--accent); }
 
 .inline-form {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: end;
 }
 
-.inline-form .field { margin-bottom: 0; flex: 1; min-width: 130px; }
+.inline-form .field { margin-bottom: 0; }
+
+.inline-form .btn-primary {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .inline-form {
+    grid-template-columns: 1fr 1fr 1fr auto;
+  }
+  .inline-form .btn-primary {
+    grid-column: auto;
+    width: auto;
+  }
+}
+
 
 .calendar-nav {
   display: flex;
