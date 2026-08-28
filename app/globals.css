@@ -452,3 +452,212 @@ footer {
   font-size: clamp(1.6rem, 4vw, 2.1rem);
   color: var(--primary-dark);
 }
+.slot-card {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.slot-card.reservado {
+  border-left-color: var(--accent);
+}
+
+.slot-card.livre {
+  border-left-color: #8fae9a;
+}
+
+.slot-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+
+.slot-card-time {
+  font-weight: 500;
+}
+
+.slot-card-name {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.slot-card-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.slot-card-chevron {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  transition: transform 0.15s ease;
+}
+
+.slot-card-chevron.open {
+  transform: rotate(180deg);
+}
+
+.slot-card-body {
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  font-size: 0.9rem;
+}
+
+.slot-card-body p {
+  color: var(--text-muted);
+  margin: 0 0 4px;
+}
+
+.slot-card-body .link-btn {
+  margin-top: 10px;
+  display: inline-block;
+}
+
+.month-calendar {
+  margin-bottom: 8px;
+}
+
+.month-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.month-header button {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  width: 36px;
+  height: 36px;
+  color: var(--primary-dark);
+  font-size: 1.1rem;
+}
+
+.month-title {
+  font-family: 'Fraunces', serif;
+  color: var(--primary-dark);
+  font-size: 1.1rem;
+  text-transform: capitalize;
+}
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.month-weekday {
+  text-align: center;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  padding-bottom: 4px;
+}
+
+.month-day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 0.82rem;
+  position: relative;
+}
+
+.month-day.empty {
+  visibility: hidden;
+}
+
+.month-day.past {
+  opacity: 0.35;
+}
+
+.month-day.has-slots {
+  border-color: var(--primary);
+  font-weight: 500;
+}
+
+.month-day.selected {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.month-day .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  position: absolute;
+  bottom: 4px;
+}
+
+.month-day.selected .dot {
+  background: #fff;
+}
+
+.day-detail {
+  margin-top: 28px;
+}
+
+.day-detail-title {
+  font-family: 'Fraunces', serif;
+  font-size: 1.1rem;
+  color: var(--primary-dark);
+  margin-bottom: 14px;
+  text-transform: capitalize;
+}
+
+.time-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.time-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.time-row input, .time-row select {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.92rem;
+  font-family: inherit;
+  background: var(--bg);
+}
+
+.time-row-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  width: 28px;
+}
+
+.add-time-row-btn {
+  background: none;
+  border: none;
+  color: var(--primary-dark);
+  font-size: 0.9rem;
+  text-decoration: underline;
+  margin-bottom: 16px;
+  display: inline-block;
+}
