@@ -3,17 +3,21 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
-function formatDateLabel(dateStr) {
-  const date = new Date(dateStr + 'T00:00:00');
-  return date.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
-}
-
 const DURATION_OPTIONS = [
-  { label: '30 minutos', value: 30 },
+  { label: '30 min', value: 30 },
   { label: '1 hora', value: 60 },
-  { label: '1 hora e 30', value: 90 },
+  { label: '1h30', value: 90 },
   { label: '2 horas', value: 120 },
 ];
+
+const WEEKDAY_LABELS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+function toDateStr(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
 
 function addMinutes(time, minutes) {
   const [h, m] = time.split(':').map(Number);
@@ -21,6 +25,11 @@ function addMinutes(time, minutes) {
   const hh = String(Math.floor(total / 60) % 24).padStart(2, '0');
   const mm = String(total % 60).padStart(2, '0');
   return `${hh}:${mm}`;
+}
+
+function formatDayDetailTitle(dateStr) {
+  const date = new Date(dateStr + 'T00:00:00');
+  return date.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
 }
 
 export default function Admin() {
@@ -32,10 +41,13 @@ export default function Admin() {
 
   const [slots, setSlots] = useState([]);
   const [bookingsBySlot, setBookingsBySlot] = useState({});
-  const [newDate, setNewDate] = useState('');
-  const [newTime, setNewTime] = useState('');
-  const [newDuration, setNewDuration] = useState(30);
   const [saving, setSaving] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
+
+  const today = new Date();
+  const [viewMonth, setViewMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [selectedDate, setSelectedDate] = useState(toDateStr(today));
+  const [timeRows, setTimeRows] = useState([{ time: '', duration: 30 }]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -75,21 +87,6 @@ export default function Admin() {
     await supabase.auth.signOut();
   }
 
-  async function handleAddSlot(e) {
-    e.preventDefault();
-    if (!newDate || !newTime) return;
-    setSaving(true);
-    const endTime = addMinutes(newTime, Number(newDuration));
-    await supabase.from('slots').insert({
-      date: newDate,
-      start_time: newTime,
-      end_time: endTime,
-    });
-    setNewTime('');
-    setSaving(false);
-    loadData();
-  }
-
   async function handleDeleteSlot(id) {
     await supabase.from('slots').delete().eq('id', id);
     loadData();
@@ -100,6 +97,61 @@ export default function Admin() {
     await supabase.from('slots').update({ is_booked: false }).eq('id', slotId);
     loadData();
   }
+
+  function updateTimeRow(index, field, value) {
+    setTimeRows((rows) => rows.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+  }
+
+  function addTimeRow() {
+    setTimeRows((rows) => [...rows, { time: '', duration: 30 }]);
+  }
+
+  function removeTimeRow(index) {
+    setTimeRows((rows) => rows.filter((_, i) => i !== index));
+  }
+
+  async function handleSaveDay() {
+    const validRows = timeRows.filter((r) => r.time);
+    if (validRows.length === 0) return;
+    setSaving(true);
+    for (const row of validRows) {
+      const endTime = addMinutes(row.time, Number(row.duration));
+      await supabase.from('slots').insert({
+        date: selectedDate,
+        start_time: row.time,
+        end_time: endTime,
+      });
+    }
+    setTimeRows([{ time: '', duration: 30 }]);
+    setSaving(false);
+    loadData();
+  }
+
+  // Datas que já têm horário aberto (pra marcar no calendário)
+  const datesWithSlots = new Set(slots.map((s) => s.date));
+
+  // Calendário do mês
+  const year = viewMonth.getFullYear();
+  const month = viewMonth.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startOffset = firstDay.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayStr = toDateStr(today);
+
+  const calendarCells = [];
+  for (let i = 0; i < startOffset; i++) calendarCells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) calendarCells.push(d);
+
+  function goToPrevMonth() {
+    setViewMonth(new Date(year, month - 1, 1));
+  }
+  function goToNextMonth() {
+    setViewMonth(new Date(year, month + 1, 1));
+  }
+
+  const daySlots = slots
+    .filter((s) => s.date === selectedDate)
+    .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
   if (checkingSession) return null;
 
@@ -133,70 +185,106 @@ export default function Admin() {
       </div>
 
       <div className="card">
-        <h3 style={{ marginBottom: 16 }}>Abrir novo horário</h3>
-        <form className="inline-form" onSubmit={handleAddSlot}>
-          <div className="field">
-            <label>Data</label>
-            <input type="date" required value={newDate} onChange={(e) => setNewDate(e.target.value)} />
+        <div className="month-calendar">
+          <div className="month-header">
+            <button onClick={goToPrevMonth}>‹</button>
+            <div className="month-title">
+              {viewMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+            </div>
+            <button onClick={goToNextMonth}>›</button>
           </div>
-          <div className="field">
-            <label>Início</label>
-            <input type="time" required value={newTime} onChange={(e) => setNewTime(e.target.value)} />
+
+          <div className="month-grid">
+            {WEEKDAY_LABELS.map((w, i) => (
+              <div className="month-weekday" key={i}>{w}</div>
+            ))}
+            {calendarCells.map((d, i) => {
+              if (d === null) return <div className="month-day empty" key={i} />;
+              const dateStr = toDateStr(new Date(year, month, d));
+              const isPast = dateStr < todayStr;
+              const isSelected = dateStr === selectedDate;
+              const hasSlots = datesWithSlots.has(dateStr);
+              return (
+                <button
+                  key={i}
+                  className={`month-day ${isPast ? 'past' : ''} ${isSelected ? 'selected' : ''} ${hasSlots ? 'has-slots' : ''}`}
+                  onClick={() => setSelectedDate(dateStr)}
+                >
+                  {d}
+                  {hasSlots && <span className="dot" />}
+                </button>
+              );
+            })}
           </div>
-          <div className="field">
-            <label>Duração</label>
-            <select
-              value={newDuration}
-              onChange={(e) => setNewDuration(e.target.value)}
-              style={{
-                width: '100%',
-                border: '1px solid var(--line)',
-                borderRadius: 8,
-                padding: '11px 13px',
-                fontSize: '0.98rem',
-                fontFamily: 'inherit',
-                background: 'var(--bg)',
-              }}
-            >
-              {DURATION_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
+        </div>
+
+        <div className="day-detail">
+          <div className="day-detail-title">{formatDayDetailTitle(selectedDate)}</div>
+
+          <div className="time-rows">
+            {timeRows.map((row, i) => (
+              <div className="time-row" key={i}>
+                <input
+                  type="time"
+                  value={row.time}
+                  onChange={(e) => updateTimeRow(i, 'time', e.target.value)}
+                />
+                <select
+                  value={row.duration}
+                  onChange={(e) => updateTimeRow(i, 'duration', e.target.value)}
+                >
+                  {DURATION_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                {timeRows.length > 1 && (
+                  <button className="time-row-remove" onClick={() => removeTimeRow(i)}>✕</button>
+                )}
+              </div>
+            ))}
           </div>
-          <button className="btn-primary" style={{ width: 'auto' }} disabled={saving}>
-            {saving ? 'Salvando…' : 'Adicionar'}
+
+          <button className="add-time-row-btn" onClick={addTimeRow}>+ adicionar outro horário</button>
+
+          <button className="btn-primary" onClick={handleSaveDay} disabled={saving}>
+            {saving ? 'Salvando…' : 'Salvar horários deste dia'}
           </button>
-        </form>
-        <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 10 }}>
-          O horário de término é calculado automaticamente com base na duração escolhida.
-        </p>
+        </div>
       </div>
 
       <div style={{ marginTop: 28 }}>
-        <h3 style={{ marginBottom: 14 }}>Horários</h3>
-        {slots.length === 0 && <p className="empty-state">Nenhum horário criado ainda.</p>}
-        {slots.map((slot) => {
+        <h3 style={{ marginBottom: 14 }}>Horários de {formatDayDetailTitle(selectedDate)}</h3>
+        {daySlots.length === 0 && <p className="empty-state">Nenhum horário aberto neste dia.</p>}
+        {daySlots.map((slot) => {
           const booking = bookingsBySlot[slot.id];
+          const isOpen = expandedId === slot.id;
           return (
-            <div className="slot-row" key={slot.id}>
-              <div>
-                <strong>{formatDateLabel(slot.date)}</strong> · {slot.start_time.slice(0, 5)}–{slot.end_time.slice(0, 5)}
-                {booking && (
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                    {booking.name} · {booking.email}{booking.phone ? ` · ${booking.phone}` : ''}
-                  </div>
-                )}
+            <div className={`slot-card ${slot.is_booked ? 'reservado' : 'livre'}`} key={slot.id}>
+              <div className="slot-card-header" onClick={() => setExpandedId(isOpen ? null : slot.id)}>
+                <div>
+                  <div className="slot-card-time">{slot.start_time.slice(0, 5)}–{slot.end_time.slice(0, 5)}</div>
+                  {booking && <div className="slot-card-name">{booking.name}</div>}
+                </div>
+                <div className="slot-card-right">
+                  <span className={`tag ${slot.is_booked ? 'reservado' : 'livre'}`}>
+                    {slot.is_booked ? 'Reservado' : 'Livre'}
+                  </span>
+                  <span className={`slot-card-chevron ${isOpen ? 'open' : ''}`}>▾</span>
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span className={`tag ${slot.is_booked ? 'reservado' : 'livre'}`}>
-                  {slot.is_booked ? 'Reservado' : 'Livre'}
-                </span>
-                {slot.is_booked ? (
-                  <button className="link-btn" onClick={() => handleCancelBooking(slot.id)}>Cancelar reserva</button>
-                ) : (
-                  <button className="link-btn" onClick={() => handleDeleteSlot(slot.id)}>Remover</button>
-                )}
-              </div>
+              {isOpen && (
+                <div className="slot-card-body">
+                  {booking ? (
+                    <>
+                      <p>{booking.email}</p>
+                      {booking.phone && <p>{booking.phone}</p>}
+                      <button className="link-btn" onClick={() => handleCancelBooking(slot.id)}>Cancelar reserva</button>
+                    </>
+                  ) : (
+                    <button className="link-btn" onClick={() => handleDeleteSlot(slot.id)}>Remover horário</button>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
