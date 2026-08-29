@@ -223,12 +223,15 @@ export default function Admin() {
 
           <div className="time-rows">
             {timeRows.map((row, i) => (
-              <div className="time-row" key={i}>
-                <input
+              <div className="time-row" key={                
+            <input
                   type="time"
+                  step="1800"
                   value={row.time}
                   onChange={(e) => updateTimeRow(i, 'time', e.target.value)}
                 />
+
+
                 <select
                   value={row.duration}
                   onChange={(e) => updateTimeRow(i, 'duration', e.target.value)}
