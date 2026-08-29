@@ -127,10 +127,8 @@ export default function Admin() {
     loadData();
   }
 
-  // Datas que já têm horário aberto (pra marcar no calendário)
   const datesWithSlots = new Set(slots.map((s) => s.date));
 
-  // Calendário do mês
   const year = viewMonth.getFullYear();
   const month = viewMonth.getMonth();
   const firstDay = new Date(year, month, 1);
@@ -223,15 +221,13 @@ export default function Admin() {
 
           <div className="time-rows">
             {timeRows.map((row, i) => (
-              <div className="time-row" key={                
-            <input
+              <div className="time-row" key={i}>
+                <input
                   type="time"
                   step="1800"
                   value={row.time}
                   onChange={(e) => updateTimeRow(i, 'time', e.target.value)}
                 />
-
-
                 <select
                   value={row.duration}
                   onChange={(e) => updateTimeRow(i, 'duration', e.target.value)}
