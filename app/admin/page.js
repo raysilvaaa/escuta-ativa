@@ -12,6 +12,12 @@ const DURATION_OPTIONS = [
 
 const WEEKDAY_LABELS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
+const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
+  const h = String(Math.floor(i / 2)).padStart(2, '0');
+  const m = i % 2 === 0 ? '00' : '30';
+  return `${h}:${m}`;
+});
+
 function toDateStr(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -222,12 +228,15 @@ export default function Admin() {
           <div className="time-rows">
             {timeRows.map((row, i) => (
               <div className="time-row" key={i}>
-                <input
-                  type="time"
-                  step="1800"
+                <select
                   value={row.time}
                   onChange={(e) => updateTimeRow(i, 'time', e.target.value)}
-                />
+                >
+                  <option value="">Escolha o horário</option>
+                  {TIME_OPTIONS.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
                 <select
                   value={row.duration}
                   onChange={(e) => updateTimeRow(i, 'duration', e.target.value)}
