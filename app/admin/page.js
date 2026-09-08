@@ -161,4 +161,156 @@ export default function Admin() {
 
   const calendarCells = [];
   for (let i = 0; i < startOffset; i++) calendarCells.push(null);
-  for (let d = 1; d 
+  for (let d = 1; d <= daysInMonth; d++) calendarCells.push(d);
+
+  function goToPrevMonth() {
+    setViewMonth(new Date(year, month - 1, 1));
+  }
+  function goToNextMonth() {
+    setViewMonth(new Date(year, month + 1, 1));
+  }
+
+  const daySlots = slots
+    .filter((s) => s.date === selectedDate)
+    .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+  if (checkingSession) return null;
+
+  if (!session) {
+    return (
+      <div className="container">
+        <div className="hero">
+          <h1>Área do profissional</h1>
+        </div>
+        <form className="card" onSubmit={handleLogin} style={{ maxWidth: 380, margin: '0 auto' }}>
+          <div className="field">
+            <label>E-mail</label>
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Senha</label>
+            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+          {loginError && <p className="error-text">{loginError}</p>}
+          <button className="btn-primary">Entrar</button>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container">
+      <div className="admin-header">
+        <h1>Sua agenda</h1>
+        <button className="link-btn" onClick={handleLogout}>Sair</button>
+      </div>
+
+      <div className="card">
+        <div className="month-calendar">
+          <div className="month-header">
+            <button onClick={goToPrevMonth}>‹</button>
+            <div className="month-title">
+              {viewMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+            </div>
+            <button onClick={goToNextMonth}>›</button>
+          </div>
+
+          <div className="month-grid">
+            {WEEKDAY_LABELS.map((w, i) => (
+              <div className="month-weekday" key={i}>{w}</div>
+            ))}
+            {calendarCells.map((d, i) => {
+              if (d === null) return <div className="month-day empty" key={i} />;
+              const dateStr = toDateStr(new Date(year, month, d));
+              const isPast = dateStr < todayStr;
+              const isSelected = dateStr === selectedDate;
+              const hasSlots = datesWithSlots.has(dateStr);
+              return (
+                <button
+                  key={i}
+                  className={`month-day ${isPast ? 'past' : ''} ${isSelected ? 'selected' : ''} ${hasSlots ? 'has-slots' : ''}`}
+                  onClick={() => setSelectedDate(dateStr)}
+                >
+                  {d}
+                  {hasSlots && <span className="dot" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="day-detail">
+          <div className="day-detail-title">{formatDayDetailTitle(selectedDate)}</div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 14 }}>
+            Abra um bloco de tempo livre — o sistema divide sozinho em intervalos de 30 min.
+          </p>
+
+          <div className="time-rows">
+            {blockRows.map((row, i) => (
+              <div className="time-row" key={i}>
+                <select value={row.start} onChange={(e) => updateBlockRow(i, 'start', e.target.value)}>
+                  <option value="">Início</option>
+                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <select value={row.end} onChange={(e) => updateBlockRow(i, 'end', e.target.value)}>
+                  <option value="">Fim</option>
+                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                {blockRows.length > 1 && (
+                  <button className="time-row-remove" onClick={() => removeBlockRow(i)}>✕</button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <button className="add-time-row-btn" onClick={addBlockRow}>+ adicionar outro bloco</button>
+
+          {blockError && <p className="error-text">{blockError}</p>}
+
+          <button className="btn-primary" onClick={handleSaveBlocks} disabled={saving}>
+            {saving ? 'Salvando…' : 'Salvar horários deste dia'}
+          </button>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 28 }}>
+        <h3 style={{ marginBottom: 14 }}>Horários de {formatDayDetailTitle(selectedDate)}</h3>
+        {daySlots.length === 0 && <p className="empty-state">Nenhum horário aberto neste dia.</p>}
+        {daySlots.map((slot) => {
+          const booking = bookingsBySlot[slot.id];
+          const isOpen = expandedId === slot.id;
+          return (
+            <div className={`slot-card ${slot.is_booked ? 'reservado' : 'livre'}`} key={slot.id}>
+              <div className="slot-card-header" onClick={() => setExpandedId(isOpen ? null : slot.id)}>
+                <div>
+                  <div className="slot-card-time">{slot.start_time.slice(0, 5)}–{slot.end_time.slice(0, 5)}</div>
+                  {booking && <div className="slot-card-name">{booking.name}</div>}
+                </div>
+                <div className="slot-card-right">
+                  <span className={`tag ${slot.is_booked ? 'reservado' : 'livre'}`}>
+                    {slot.is_booked ? 'Reservado' : 'Livre'}
+                  </span>
+                  <span className={`slot-card-chevron ${isOpen ? 'open' : ''}`}>▾</span>
+                </div>
+              </div>
+              {isOpen && (
+                <div className="slot-card-body">
+                  {booking ? (
+                    <>
+                      <p>{booking.email}</p>
+                      {booking.phone && <p>{booking.phone}</p>}
+                      {booking.duration_minutes && <p>Duração: {booking.duration_minutes} min</p>}
+                      <button className="link-btn" onClick={() => handleCancelBooking(slot.id)}>Cancelar reserva</button>
+                    </>
+                  ) : (
+                    <button className="link-btn" onClick={() => handleDeleteSlot(slot.id)}>Remover horário</button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
