@@ -3,8 +3,25 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
+const DURATION_OPTIONS = [
+  { label: '30 minutos', value: 30 },
+  { label: '1 hora', value: 60 },
+  { label: '1 hora e 30', value: 90 },
+];
+
 function formatTime(t) {
   return t.slice(0, 5);
+}
+
+function timeToMinutes(t) {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function minutesToTime(mins) {
+  const h = String(Math.floor(mins / 60) % 24).padStart(2, '0');
+  const m = String(mins % 60).padStart(2, '0');
+  return `${h}:${m}`;
 }
 
 function dayParts(dateStr) {
@@ -30,7 +47,8 @@ const DAYS_PER_PAGE = 3;
 export default function Agendamento() {
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState(null);
+  const [duration, setDuration] = useState(30);
+  const [selected, setSelected] = useState(null); // { date, startSlot, chain: [slots] }
   const [page, setPage] = useState(0);
   const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '' });
   const [submitting, setSubmitting] = useState(false);
@@ -40,6 +58,10 @@ export default function Agendamento() {
   useEffect(() => {
     loadSlots();
   }, []);
+
+  useEffect(() => {
+    setSelected(null);
+  }, [duration]);
 
   async function loadSlots() {
     setLoading(true);
@@ -54,11 +76,40 @@ export default function Agendamento() {
     setLoading(false);
   }
 
-  const grouped = slots.reduce((acc, slot) => {
+  const neededBlocks = duration / 30;
+
+  // Agrupa por data, e pra cada data acha quais horários de início têm blocos
+  // consecutivos livres suficientes pra cobrir a duração escolhida.
+  const grouped = {};
+  const byDate = slots.reduce((acc, slot) => {
     acc[slot.date] = acc[slot.date] || [];
     acc[slot.date].push(slot);
     return acc;
   }, {});
+
+  Object.entries(byDate).forEach(([date, daySlots]) => {
+    const sorted = [...daySlots].sort((a, b) => a.start_time.localeCompare(b.start_time));
+    const byStart = {};
+    sorted.forEach((s) => { byStart[s.start_time] = s; });
+
+    const validStarts = [];
+    sorted.forEach((s) => {
+      const chain = [];
+      let cur = timeToMinutes(s.start_time);
+      let ok = true;
+      for (let i = 0; i < neededBlocks; i++) {
+        const t = minutesToTime(cur);
+        const found = byStart[t];
+        if (!found) { ok = false; break; }
+        chain.push(found);
+        cur += 30;
+      }
+      if (ok) validStarts.push({ startSlot: s, chain });
+    });
+
+    if (validStarts.length > 0) grouped[date] = validStarts;
+  });
+
   const uniqueDates = Object.keys(grouped);
   const visibleDates = uniqueDates.slice(page * DAYS_PER_PAGE, page * DAYS_PER_PAGE + DAYS_PER_PAGE);
   const hasPrev = page > 0;
@@ -73,13 +124,18 @@ export default function Agendamento() {
     const res = await fetch('/api/book', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slotId: selected.id, ...form }),
+      body: JSON.stringify({
+        slotIds: selected.chain.map((s) => s.id),
+        durationMinutes: duration,
+        ...form,
+      }),
     });
     const result = await res.json();
     setSubmitting(false);
 
     if (!res.ok) {
       setError(result.error || 'Não foi possível concluir o agendamento. Tente novamente.');
+      loadSlots();
       return;
     }
     setBooked(selected);
@@ -88,8 +144,9 @@ export default function Agendamento() {
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER;
 
   if (booked) {
+    const lastSlot = booked.chain[booked.chain.length - 1];
     const message = encodeURIComponent(
-      `Olá! Marquei um horário de escuta no dia ${formatDateLabel(booked.date)} às ${formatTime(booked.start_time)}. Gostaria de combinar o pagamento.`
+      `Olá! Marquei um horário de escuta no dia ${formatDateLabel(booked.startSlot.date)} às ${formatTime(booked.startSlot.start_time)} (${duration} min). Gostaria de combinar o pagamento.`
     );
     return (
       <div className="container">
@@ -99,7 +156,7 @@ export default function Agendamento() {
           </div>
           <h2>Horário reservado</h2>
           <p>
-            {formatDateLabel(booked.date)} às {formatTime(booked.start_time)}.
+            {formatDateLabel(booked.startSlot.date)} às {formatTime(booked.startSlot.start_time)}–{formatTime(lastSlot.end_time)}.
             <br />
             Enviamos os detalhes para {form.email}.
           </p>
@@ -124,10 +181,31 @@ export default function Agendamento() {
         <h1>Agendamento</h1>
       </div>
 
+      <div className="field" style={{ marginBottom: 24 }}>
+        <label>Duração da sessão</label>
+        <select
+          value={duration}
+          onChange={(e) => { setDuration(Number(e.target.value)); setPage(0); }}
+          style={{
+            width: '100%',
+            border: '1px solid var(--line)',
+            borderRadius: 8,
+            padding: '11px 13px',
+            fontSize: '0.98rem',
+            fontFamily: 'inherit',
+            background: '#fff',
+          }}
+        >
+          {DURATION_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+
       {loading && <p className="empty-state">Carregando horários…</p>}
 
       {!loading && uniqueDates.length === 0 && (
-        <p className="empty-state">Nenhum horário disponível no momento. Volte em breve.</p>
+        <p className="empty-state">Nenhum horário disponível para essa duração no momento.</p>
       )}
 
       {!loading && uniqueDates.length > 0 && (
@@ -147,13 +225,13 @@ export default function Agendamento() {
                     <div className="daynum">{parts.daynum}</div>
                     <div className="month">{parts.month}</div>
                   </div>
-                  {grouped[date].map((slot) => (
+                  {grouped[date].map(({ startSlot, chain }) => (
                     <button
-                      key={slot.id}
-                      className={`slot-btn ${selected?.id === slot.id ? 'selected' : ''}`}
-                      onClick={() => setSelected(slot)}
+                      key={startSlot.id}
+                      className={`slot-btn ${selected?.startSlot.id === startSlot.id ? 'selected' : ''}`}
+                      onClick={() => setSelected({ date, startSlot, chain })}
                     >
-                      {formatTime(slot.start_time)}
+                      {formatTime(startSlot.start_time)}
                     </button>
                   ))}
                 </div>
@@ -166,7 +244,7 @@ export default function Agendamento() {
       {selected && (
         <form className="card" onSubmit={handleSubmit}>
           <h3 style={{ marginBottom: 18 }}>
-            {formatDateLabel(selected.date)} às {formatTime(selected.start_time)}
+            {formatDateLabel(selected.date)} às {formatTime(selected.startSlot.start_time)} ({duration} min)
           </h3>
           <div className="field">
             <label>Nome</label>
