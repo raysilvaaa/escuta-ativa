@@ -267,4 +267,64 @@ export default function Admin() {
                 </select>
                 <select value={row.end} onChange={(e) => updateBlockRow(i, 'end', e.target.value)}>
                   <option value="">Fim</option>
-                  {TIME_OPTIONS.map((t) => 
+                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                {blockRows.length > 1 && (
+                  <button className="time-row-remove" onClick={() => removeBlockRow(i)}>✕</button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <button className="add-time-row-btn" onClick={addBlockRow}>+ adicionar outro bloco</button>
+
+          {blockError && <p className="error-text">{blockError}</p>}
+
+          <button className="btn-primary" onClick={handleSaveBlocks} disabled={saving}>
+            {saving ? 'Salvando…' : 'Salvar horários deste dia'}
+          </button>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 28 }}>
+        <h3 style={{ marginBottom: 14 }}>Horários de {formatDayDetailTitle(selectedDate)}</h3>
+        {groupedSlots.length === 0 && <p className="empty-state">Nenhum horário aberto neste dia.</p>}
+        {groupedSlots.map((group) => {
+          const booking = group.bookingId ? bookingsBySlot[group.bookingId] : null;
+          const groupKey = group.slotIds.join('-');
+          const isOpen = expandedId === groupKey;
+          return (
+            <div className={`slot-card ${group.isBooked ? 'reservado' : 'livre'}`} key={groupKey}>
+              <div className="slot-card-header" onClick={() => setExpandedId(isOpen ? null : groupKey)}>
+                <div>
+                  <div className="slot-card-time">{group.start.slice(0, 5)}–{group.end.slice(0, 5)}</div>
+                  {booking && <div className="slot-card-name">{booking.name}</div>}
+                </div>
+                <div className="slot-card-right">
+                  <span className={`tag ${group.isBooked ? 'reservado' : 'livre'}`}>
+                    {group.isBooked ? 'Reservado' : 'Livre'}
+                  </span>
+                  <span className={`slot-card-chevron ${isOpen ? 'open' : ''}`}>▾</span>
+                </div>
+              </div>
+              {isOpen && (
+                <div className="slot-card-body">
+                  {booking ? (
+                    <>
+                      <p>{booking.email}</p>
+                      {booking.phone && <p>{booking.phone}</p>}
+                      {booking.duration_minutes && <p>Duração: {booking.duration_minutes} min</p>}
+                      <button className="link-btn" onClick={() => handleCancelBooking(group.bookingId)}>Cancelar reserva</button>
+                    </>
+                  ) : (
+                    <button className="link-btn" onClick={() => handleDeleteSlot(group.slotIds[0])}>Remover horário</button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
