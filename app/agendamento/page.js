@@ -90,7 +90,8 @@ export default function Agendamento() {
   Object.entries(byDate).forEach(([date, daySlots]) => {
     const sorted = [...daySlots].sort((a, b) => a.start_time.localeCompare(b.start_time));
     const byStart = {};
-    sorted.forEach((s) => { byStart[s.start_time] = s; });
+    sorted.forEach((s) => { byStart[s.start_time.slice(0, 5)] = s; });
+
 
     const validStarts = [];
     sorted.forEach((s) => {
