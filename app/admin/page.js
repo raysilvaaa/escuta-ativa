@@ -74,9 +74,10 @@ export default function Admin() {
     setSlots(slotData || []);
 
     const { data: bookingData } = await supabase.from('bookings').select('*');
-    const map = {};
-    (bookingData || []).forEach((b) => { map[b.slot_id] = b; });
-    setBookingsBySlot(map);
+    const bookingById = {};
+    (bookingData || []).forEach((b) => { bookingById[b.id] = b; });
+    setBookingsBySlot(bookingById);
+
   }
 
   async function handleLogin(e) {
@@ -277,7 +278,8 @@ export default function Admin() {
         <h3 style={{ marginBottom: 14 }}>Horários de {formatDayDetailTitle(selectedDate)}</h3>
         {daySlots.length === 0 && <p className="empty-state">Nenhum horário aberto neste dia.</p>}
         {daySlots.map((slot) => {
-          const booking = bookingsBySlot[slot.id];
+          const booking = bookingsBySlot[slot.booking_id];
+
           const isOpen = expandedId === slot.id;
           return (
             <div className={`slot-card ${slot.is_booked ? 'reservado' : 'livre'}`} key={slot.id}>
