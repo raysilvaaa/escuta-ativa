@@ -77,7 +77,6 @@ export default function Admin() {
     const bookingById = {};
     (bookingData || []).forEach((b) => { bookingById[b.id] = b; });
     setBookingsBySlot(bookingById);
-
   }
 
   async function handleLogin(e) {
@@ -96,14 +95,9 @@ export default function Admin() {
     loadData();
   }
 
-  async function handleCancelBooking(slotId) {
-    const booking = bookingsBySlot[slotId];
-    if (booking) {
-      await supabase.from('slots').update({ is_booked: false, booking_id: null }).eq('booking_id', booking.id);
-      await supabase.from('bookings').delete().eq('id', booking.id);
-    } else {
-      await supabase.from('slots').update({ is_booked: false }).eq('id', slotId);
-    }
+  async function handleCancelBooking(bookingId) {
+    await supabase.from('slots').update({ is_booked: false, booking_id: null }).eq('booking_id', bookingId);
+    await supabase.from('bookings').delete().eq('id', bookingId);
     loadData();
   }
 
@@ -174,6 +168,24 @@ export default function Admin() {
   const daySlots = slots
     .filter((s) => s.date === selectedDate)
     .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+  // Junta horários consecutivos da mesma reserva num único card
+  const groupedSlots = [];
+  daySlots.forEach((slot) => {
+    const last = groupedSlots[groupedSlots.length - 1];
+    if (slot.booking_id && last && last.bookingId === slot.booking_id && last.end === slot.start_time) {
+      last.end = slot.end_time;
+      last.slotIds.push(slot.id);
+    } else {
+      groupedSlots.push({
+        start: slot.start_time,
+        end: slot.end_time,
+        bookingId: slot.booking_id,
+        isBooked: slot.is_booked,
+        slotIds: [slot.id],
+      });
+    }
+  });
 
   if (checkingSession) return null;
 
@@ -255,64 +267,4 @@ export default function Admin() {
                 </select>
                 <select value={row.end} onChange={(e) => updateBlockRow(i, 'end', e.target.value)}>
                   <option value="">Fim</option>
-                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-                {blockRows.length > 1 && (
-                  <button className="time-row-remove" onClick={() => removeBlockRow(i)}>✕</button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <button className="add-time-row-btn" onClick={addBlockRow}>+ adicionar outro bloco</button>
-
-          {blockError && <p className="error-text">{blockError}</p>}
-
-          <button className="btn-primary" onClick={handleSaveBlocks} disabled={saving}>
-            {saving ? 'Salvando…' : 'Salvar horários deste dia'}
-          </button>
-        </div>
-      </div>
-
-      <div style={{ marginTop: 28 }}>
-        <h3 style={{ marginBottom: 14 }}>Horários de {formatDayDetailTitle(selectedDate)}</h3>
-        {daySlots.length === 0 && <p className="empty-state">Nenhum horário aberto neste dia.</p>}
-        {daySlots.map((slot) => {
-          const booking = bookingsBySlot[slot.booking_id];
-
-          const isOpen = expandedId === slot.id;
-          return (
-            <div className={`slot-card ${slot.is_booked ? 'reservado' : 'livre'}`} key={slot.id}>
-              <div className="slot-card-header" onClick={() => setExpandedId(isOpen ? null : slot.id)}>
-                <div>
-                  <div className="slot-card-time">{slot.start_time.slice(0, 5)}–{slot.end_time.slice(0, 5)}</div>
-                  {booking && <div className="slot-card-name">{booking.name}</div>}
-                </div>
-                <div className="slot-card-right">
-                  <span className={`tag ${slot.is_booked ? 'reservado' : 'livre'}`}>
-                    {slot.is_booked ? 'Reservado' : 'Livre'}
-                  </span>
-                  <span className={`slot-card-chevron ${isOpen ? 'open' : ''}`}>▾</span>
-                </div>
-              </div>
-              {isOpen && (
-                <div className="slot-card-body">
-                  {booking ? (
-                    <>
-                      <p>{booking.email}</p>
-                      {booking.phone && <p>{booking.phone}</p>}
-                      {booking.duration_minutes && <p>Duração: {booking.duration_minutes} min</p>}
-                      <button className="link-btn" onClick={() => handleCancelBooking(slot.id)}>Cancelar reserva</button>
-                    </>
-                  ) : (
-                    <button className="link-btn" onClick={() => handleDeleteSlot(slot.id)}>Remover horário</button>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+                  {TIME_OPTIONS.map((t) => 
