@@ -11,6 +11,12 @@ const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
   return `${h}:${m}`;
 });
 
+const DURATION_OPTIONS = [
+  { label: '30 min', value: 30 },
+  { label: '1 hora', value: 60 },
+  { label: '1h30', value: 90 },
+];
+
 function toDateStr(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -46,6 +52,9 @@ export default function Admin() {
   const [saving, setSaving] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [blockError, setBlockError] = useState('');
+  const [manualForm, setManualForm] = useState({ name: '', phone: '', duration: 30 });
+  const [manualSaving, setManualSaving] = useState(false);
+  const [manualError, setManualError] = useState('');
 
   const today = new Date();
   const [viewMonth, setViewMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -150,6 +159,65 @@ export default function Admin() {
     loadData();
   }
 
+  async function handleManualBook(startSlot) {
+    setManualError('');
+    if (!manualForm.name) {
+      setManualError('Preencha ao menos o nome.');
+      return;
+    }
+
+    const neededBlocks = Number(manualForm.duration) / 30;
+    const daySlotsSorted = slots
+      .filter((s) => s.date === selectedDate && !s.is_booked)
+      .sort((a, b) => a.start_time.localeCompare(b.start_time));
+    const byStart = {};
+    daySlotsSorted.forEach((s) => { byStart[s.start_time.slice(0, 5)] = s; });
+
+    const chain = [];
+    let cur = timeToMinutes(startSlot.start_time.slice(0, 5));
+    for (let i = 0; i < neededBlocks; i++) {
+      const t = minutesToTime(cur);
+      const found = byStart[t];
+      if (!found) {
+        setManualError('Não há blocos livres suficientes seguidos para essa duração.');
+        return;
+      }
+      chain.push(found);
+      cur += 30;
+    }
+
+    setManualSaving(true);
+
+    const { data: bookingData, error: bookingError } = await supabase
+      .from('bookings')
+      .insert({
+        slot_id: chain[0].id,
+        name: manualForm.name,
+        email: '',
+        phone: manualForm.phone,
+        notes: 'Agendado manualmente pelo admin',
+        duration_minutes: Number(manualForm.duration),
+      })
+      .select()
+      .single();
+
+    if (bookingError || !bookingData) {
+      setManualError('Não foi possível salvar o agendamento.');
+      setManualSaving(false);
+      return;
+    }
+
+    await supabase
+      .from('slots')
+      .update({ is_booked: true, booking_id: bookingData.id })
+      .in('id', chain.map((s) => s.id));
+
+    setManualForm({ name: '', phone: '', duration: 30 });
+    setManualSaving(false);
+    setExpandedId(null);
+    loadData();
+  }
+
   const datesWithSlots = new Set(slots.map((s) => s.date));
 
   const year = viewMonth.getFullYear();
@@ -187,6 +255,7 @@ export default function Admin() {
         bookingId: slot.booking_id,
         isBooked: slot.is_booked,
         slotIds: [slot.id],
+        firstSlot: slot,
       });
     }
   });
@@ -205,139 +274,4 @@ export default function Admin() {
             <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div className="field">
-            <label>Senha</label>
-            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-          </div>
-          {loginError && <p className="error-text">{loginError}</p>}
-          <button className="btn-primary">Entrar</button>
-        </form>
-      </div>
-    );
-  }
-
-  return (
-    <div className="container">
-      <div className="admin-header">
-        <h1>Sua agenda</h1>
-        <button className="link-btn" onClick={handleLogout}>Sair</button>
-      </div>
-
-      <div className="card">
-        <div className="month-calendar">
-          <div className="month-header">
-            <button onClick={goToPrevMonth}>‹</button>
-            <div className="month-title">
-              {viewMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-            </div>
-            <button onClick={goToNextMonth}>›</button>
-          </div>
-
-          <div className="month-grid">
-            {WEEKDAY_LABELS.map((w, i) => (
-              <div className="month-weekday" key={i}>{w}</div>
-            ))}
-            {calendarCells.map((d, i) => {
-              if (d === null) return <div className="month-day empty" key={i} />;
-              const dateStr = toDateStr(new Date(year, month, d));
-              const isPast = dateStr < todayStr;
-              const isSelected = dateStr === selectedDate;
-              const hasSlots = datesWithSlots.has(dateStr);
-              return (
-                <button
-                  key={i}
-                  className={`month-day ${isPast ? 'past' : ''} ${isSelected ? 'selected' : ''} ${hasSlots ? 'has-slots' : ''}`}
-                  onClick={() => setSelectedDate(dateStr)}
-                >
-                  {d}
-                  {hasSlots && <span className="dot" />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="day-detail">
-          <div className="day-detail-title">{formatDayDetailTitle(selectedDate)}</div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 14 }}>
-            Abra um bloco de tempo livre — o sistema divide sozinho em intervalos de 30 min.
-          </p>
-
-          <div className="time-rows">
-            {blockRows.map((row, i) => (
-              <div className="time-row" key={i}>
-                <select value={row.start} onChange={(e) => updateBlockRow(i, 'start', e.target.value)}>
-                  <option value="">Início</option>
-                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-                <select value={row.end} onChange={(e) => updateBlockRow(i, 'end', e.target.value)}>
-                  <option value="">Fim</option>
-                  {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-                {blockRows.length > 1 && (
-                  <button className="time-row-remove" onClick={() => removeBlockRow(i)}>✕</button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <button className="add-time-row-btn" onClick={addBlockRow}>+ adicionar outro bloco</button>
-
-          {blockError && <p className="error-text">{blockError}</p>}
-
-          <button className="btn-primary" onClick={handleSaveBlocks} disabled={saving}>
-            {saving ? 'Salvando…' : 'Salvar horários deste dia'}
-          </button>
-        </div>
-      </div>
-
-      <div style={{ marginTop: 28 }}>
-        <h3 style={{ marginBottom: 14 }}>Horários de {formatDayDetailTitle(selectedDate)}</h3>
-        {groupedSlots.length === 0 && <p className="empty-state">Nenhum horário aberto neste dia.</p>}
-        {groupedSlots.map((group) => {
-          const booking = group.bookingId ? bookingsBySlot[group.bookingId] : null;
-          const groupKey = group.slotIds.join('-');
-          const isOpen = expandedId === groupKey;
-          return (
-            <div className={`slot-card ${group.isBooked ? 'reservado' : 'livre'}`} key={groupKey}>
-              <div className="slot-card-header" onClick={() => setExpandedId(isOpen ? null : groupKey)}>
-                <div>
-                  <div className="slot-card-time">{group.start.slice(0, 5)}–{group.end.slice(0, 5)}</div>
-                  {booking && <div className="slot-card-name">{booking.name}</div>}
-                </div>
-                <div className="slot-card-right">
-                  {booking && (
-                    <span className={`tag ${booking.paid ? 'livre' : 'reservado'}`}>
-                      {booking.paid ? 'Pago' : 'Não pago'}
-                    </span>
-                  )}
-                  <span className={`tag ${group.isBooked ? 'reservado' : 'livre'}`}>
-                    {group.isBooked ? 'Reservado' : 'Livre'}
-                  </span>
-                  <span className={`slot-card-chevron ${isOpen ? 'open' : ''}`}>▾</span>
-                </div>
-              </div>
-              {isOpen && (
-                <div className="slot-card-body">
-                  {booking ? (
-                    <>
-                      <p>{booking.email}</p>
-                      {booking.phone && <p>{booking.phone}</p>}
-                      {booking.duration_minutes && <p>Duração: {booking.duration_minutes} min</p>}
-                      <button className="link-btn" onClick={() => handleTogglePaid(booking.id, booking.paid)}>
-                        {booking.paid ? 'Marcar como não pago' : 'Marcar como pago'}
-                      </button>
-                      <br />
-                      <button className="link-btn" onClick={() => handleCancelBooking(group.bookingId)}>Cancelar reserva</button>
-                    </>
-                  ) : (
-                    <button className="link-btn" onClick={() => handleDeleteSlot(group.slotIds[0])}>Remover horário</button>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+            <label>Senha
