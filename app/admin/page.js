@@ -101,6 +101,11 @@ export default function Admin() {
     loadData();
   }
 
+  async function handleTogglePaid(bookingId, currentPaid) {
+    await supabase.from('bookings').update({ paid: !currentPaid }).eq('id', bookingId);
+    loadData();
+  }
+
   function updateBlockRow(index, field, value) {
     setBlockRows((rows) => rows.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
   }
@@ -169,7 +174,6 @@ export default function Admin() {
     .filter((s) => s.date === selectedDate)
     .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
-  // Junta horários consecutivos da mesma reserva num único card
   const groupedSlots = [];
   daySlots.forEach((slot) => {
     const last = groupedSlots[groupedSlots.length - 1];
@@ -301,6 +305,11 @@ export default function Admin() {
                   {booking && <div className="slot-card-name">{booking.name}</div>}
                 </div>
                 <div className="slot-card-right">
+                  {booking && (
+                    <span className={`tag ${booking.paid ? 'livre' : 'reservado'}`}>
+                      {booking.paid ? 'Pago' : 'Não pago'}
+                    </span>
+                  )}
                   <span className={`tag ${group.isBooked ? 'reservado' : 'livre'}`}>
                     {group.isBooked ? 'Reservado' : 'Livre'}
                   </span>
@@ -314,6 +323,10 @@ export default function Admin() {
                       <p>{booking.email}</p>
                       {booking.phone && <p>{booking.phone}</p>}
                       {booking.duration_minutes && <p>Duração: {booking.duration_minutes} min</p>}
+                      <button className="link-btn" onClick={() => handleTogglePaid(booking.id, booking.paid)}>
+                        {booking.paid ? 'Marcar como não pago' : 'Marcar como pago'}
+                      </button>
+                      <br />
                       <button className="link-btn" onClick={() => handleCancelBooking(group.bookingId)}>Cancelar reserva</button>
                     </>
                   ) : (
